@@ -1,0 +1,584 @@
+\documentclass[utf8, russian]{eskdtext}
+\usepackage{paralist}
+% без определения что-то не работает
+\newcommand{\No}{\textnumero}
+
+\usepackage{titlesec}
+\titleformat{\section}
+{\normalsize\bfseries}
+{\thesection} {1em}{}
+\titleformat{\subsection}
+{\normalsize\bfseries}
+{\thesubsection} {1em}{}
+\titleformat{\subsubsection}
+{\normalsize\bfseries}
+{\thesubsubsection} {1em}{}
+
+% Каждый раздел (\section) с новой страницы
+\let\stdsection\section
+\renewcommand \section{\newpage\stdsection}
+
+\usepackage{enumitem}
+\renewcommand{\labelitemi}{\normalfont\bfseries{--}}
+\setlist{nosep,
+left=0pt,
+labelindent=\parindent,leftmargin=*,
+leftmargin=0pt,itemindent=\labelwidth
+}
+\setlist[enumerate,2]{
+leftmargin=\parindent,itemindent=\labelwidth
+}
+\setenumerate{listparindent=\parindent}
+\makeatletter
+\AddEnumerateCounter{\asbuk}{\@asbuk}{м)}
+\makeatother
+\renewcommand{\labelenumi}{\asbuk{enumi})}
+\renewcommand{\labelenumii}{\arabic{enumii})}
+
+%%% Выравнивание и переносы
+\sloppy
+\clubpenalty=10000
+\widowpenalty=10000
+
+% Для кода
+\usepackage{listings}
+\usepackage{verbatim}
+
+% Для ссылок
+\usepackage{hyperref}
+
+% Для картинок
+\usepackage{graphicx}
+
+% ---- Настройки листингов кода ----
+\lstset{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  xleftmargin=2em,
+  framexleftmargin=1.5em,
+  tabsize=2
+}
+
+% --- Данные для титульного листа (ESKD) ---
+% В проекте подключены eskdtitle.sty/eskdstamp.sty, поэтому титульник формируется автоматически.
+% Я адаптировал титульные данные под курсовую по веб-разработке.
+
+\ESKDtitle{{\small Веб-приложение \textquotedblleft Турпортал\textquotedblright : каталог туристических клубов и лента новостей}}
+\ESKDsignature{ТПЖА.090301.548\,\,ПЗ}
+\ESKDgroup{\footnotesize Кафедра ЭВМ\\Группа ИВТб-3301-05-00}
+\ESKDauthor{Мотовилов}
+\ESKDchecker{Истомин}
+
+\begin{document}
+
+\maketitle
+
+%%% Содержание
+\tableofcontents
+
+%%% Введение без номера и с добавлением в содержание
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+
+Веб-разработка является одной из ключевых областей прикладного программирования, позволяющей создавать доступные пользователю информационные системы, работающие на различных устройствах и операционных системах. Современные веб-приложения строятся как распределённые системы, где клиентская часть (frontend) отвечает за пользовательский интерфейс и взаимодействие с пользователем, а серверная часть (backend) обеспечивает доступ к данным, бизнес-логику и интеграцию с базой данных.
+
+В рамках курсового проекта по дисциплине \textquotedblleft Веб-разработка\textquotedblright\ выполнена разработка информационной системы \textquotedblleft Турпортал\textquotedblright\ (далее~--- Система), предназначенной для просмотра каталога туристических клубов, перехода на страницу конкретного клуба, просмотра и добавления новостей клуба, а также просмотра карточек участников.
+
+В ходе разработки в Систему также добавлены регистрация и авторизация пользователей, разграничение прав доступа по ролям, страница профиля пользователя с загрузкой аватара, а также административные страницы управления пользователями и клубами.
+
+\textbf{Цель курсового проекта}~--- разработка веб-приложения с клиент--серверной архитектурой для представления данных о туристических клубах и связанных сущностях (участники, новости).
+
+\textbf{Задачи проекта:}
+\begin{enumerate}
+  \item спроектировать структуру данных и реализовать хранение в базе данных;
+  \item реализовать REST API для получения и модификации данных;
+  \item разработать пользовательский интерфейс для работы с клубами и новостями;
+  \item реализовать регистрацию/авторизацию и разграничение доступа по ролям;
+  \item реализовать административный функционал управления пользователями и клубами;
+  \item обеспечить взаимодействие frontend и backend по HTTP;
+  \item провести проверку работоспособности и описать результаты.
+\end{enumerate}
+
+\textbf{Практическая значимость} заключается в возможности использования Системы как демонстрационного учебного проекта по веб-разработке: она показывает полный цикл создания веб-приложения (моделирование данных, разработка API, клиентское приложение, интеграция).
+
+\section{Анализ предметной области}
+\subsection{Описание предметной области}
+Предметной областью является информационное сопровождение туристических клубов. Туристический клуб имеет основные атрибуты (название, город, описание, координаты на карте, признак студенческого клуба) и связан с участниками клуба и новостями клуба.
+
+С точки зрения конечного пользователя (посетителя веб-приложения) важны следующие сценарии:
+\begin{enumerate}
+  \item просмотр списка клубов и переход на страницу клуба;
+  \item получение информации о клубе (описание, местоположение, состав участников);
+  \item просмотр ленты новостей клубов и фильтрация по клубу;
+  \item добавление новости в выбранный клуб (в рамках демонстрации функций CRUD);
+  \item просмотр сведений об участнике.
+\end{enumerate}
+
+С точки зрения зарегистрированного пользователя доступны дополнительные сценарии:
+\begin{enumerate}
+  \item регистрация и вход в систему;
+  \item просмотр и редактирование профиля (ФИО, аватар);
+  \item заполнение профиля участника (о себе, неофициальные походы);
+  \item управление клубом (для руководителя клуба)~--- редактирование информации о клубе, публикация и удаление новостей, управление участниками клуба.
+\end{enumerate}
+
+Для администратора доступны расширенные сценарии:
+\begin{enumerate}
+  \item управление пользователями (просмотр, изменение роли, назначение разряда, удаление);
+  \item управление клубами (создание, редактирование, удаление, загрузка логотипа).
+\end{enumerate}
+
+\subsection{Обзор аналогов и обоснование разработки}
+В качестве аналогов можно выделить: сообщества и клубы в социальных сетях, туристические порталы и агрегаторы мероприятий. Недостаток таких решений для учебных целей заключается в том, что их внутренняя реализация не демонстрирует студенту архитектуру и практики разработки.
+
+Разрабатываемая Система ориентирована на учебные цели: прозрачная структура, простая предметная область, наличие клиент--серверного взаимодействия и базы данных.
+
+\subsection{Постановка задачи}
+Необходимо разработать веб-приложение, предоставляющее:
+\begin{enumerate}
+  \item каталог туристических клубов;
+  \item страницу клуба с разделами \textquotedblleft О клубе\textquotedblright , \textquotedblleft Новости\textquotedblright , \textquotedblleft Участники\textquotedblright ;
+  \item общую страницу новостей с фильтром по клубам;
+  \item базовые операции добавления новости и редактирования описания клуба;
+  \item регистрацию и авторизацию пользователей;
+  \item разграничение прав доступа (участник/руководитель/администратор);
+  \item административные страницы управления пользователями и клубами;
+  \item серверное API и хранилище данных.
+\end{enumerate}
+
+\section{Техническое задание}
+\subsection{Основание для разработки}
+Основанием для разработки является выполнение курсового проекта по дисциплине \textquotedblleft Веб-разработка\textquotedblright. Руководитель (преподаватель)~--- Истомин Артём.
+
+\subsection{Назначение разработки}
+Система предназначена для демонстрации работы веб-приложения с клиент--серверной архитектурой, реализующего просмотр справочных данных и элементы работы с контентом (новости).
+
+\subsection{Требования к функциональности}
+Функциональные требования:
+\begin{enumerate}
+  \item Просмотр списка клубов.
+  \item Просмотр страницы клуба по идентификатору.
+  \item Просмотр списка участников клуба.
+  \item Просмотр списка новостей клуба.
+  \item Просмотр страницы участника.
+  \item Регистрация и авторизация пользователя.
+  \item Просмотр и редактирование профиля пользователя (ФИО, аватар).
+  \item Добавление новости клуба (при наличии прав управления клубом).
+  \item Удаление новости клуба (при наличии прав управления клубом).
+  \item Редактирование информации о клубе (при наличии прав управления клубом).
+  \item Управление участниками клуба (добавление/редактирование/удаление) для руководителя/администратора.
+  \item Административное управление пользователями (просмотр, изменение роли, разряд, удаление).
+  \item Административное управление клубами (создание, редактирование, удаление).
+\end{enumerate}
+
+Нефункциональные требования:
+\begin{enumerate}
+  \item Архитектура клиент--сервер.
+  \item Использование REST API по HTTP.
+  \item Хранение данных в реляционной базе данных.
+  \item Корректная обработка ошибок (не найдено, ошибки сети).
+  \item Возможность локального запуска для демонстрации.
+  \item Защита части операций с помощью токенов доступа (Bearer JWT).
+\end{enumerate}
+
+\subsection{Требования к входным и выходным данным}
+\begin{itemize}
+  \item Входные данные при регистрации/входе: email и пароль (OAuth2 password flow).
+  \item Входные данные при добавлении новости: заголовок, текст, дата, (опционально) изображение.
+  \item Входные данные при редактировании клуба: изменяемые поля (название, город, координаты, описание, признак студенческого клуба, логотип).
+  \item Входные данные при обновлении профиля: ФИО, аватар (файл).
+  \item Выходные данные: JSON-структуры с данными клуба (включая списки участников и новостей), участника, новости и пользователя.
+\end{itemize}
+
+\section{Выбор и обоснование архитектуры системы}
+\subsection{Общий подход}
+Система реализована в виде двух независимых приложений:
+\begin{itemize}
+  \item \textbf{Backend}~--- FastAPI-приложение на Python, предоставляющее REST API и доступ к базе данных.
+  \item \textbf{Frontend}~--- React-приложение, обеспечивающее пользовательский интерфейс и обращение к API.
+\end{itemize}
+
+Преимущества выбранной архитектуры:
+\begin{enumerate}
+  \item разделение ответственности между слоями;
+  \item независимая разработка и тестирование клиентской и серверной частей;
+  \item возможность масштабирования и замены технологий отдельных компонентов;
+  \item использование стандартных веб-протоколов (HTTP, JSON).
+\end{enumerate}
+
+\subsection{Выбор технологий}
+\textbf{Backend:}
+\begin{itemize}
+  \item FastAPI~--- современный фреймворк для разработки REST API.
+  \item SQLAlchemy~--- ORM для работы с реляционной БД.
+  \item SQLite~--- лёгкая база данных для учебного проекта.
+  \item Uvicorn~--- ASGI-сервер для запуска.
+\end{itemize}
+
+\textbf{Frontend:}
+\begin{itemize}
+  \item React (Create React App)~--- библиотека для построения UI.
+  \item react-router-dom~--- маршрутизация на клиенте.
+  \item axios~--- HTTP-клиент.
+  \item leaflet/react-leaflet~--- отображение карты и маркеров.
+\end{itemize}
+
+\section{Разработка структуры базы данных}
+\subsection{Выбор модели данных}
+Для хранения данных используется реляционная модель. Основные сущности:
+\begin{enumerate}
+  \item \textbf{Club}~--- туристический клуб.
+  \item \textbf{Member}~--- участник клуба.
+  \item \textbf{News}~--- новость клуба.
+  \item \textbf{User}~--- пользователь системы (учётная запись).
+\end{enumerate}
+
+Связи:
+\begin{itemize}
+  \item Club 1---N Member;
+  \item Club 1---N News.
+  \item User 1---0..1 Member (профиль участника может отсутствовать до привязки к клубу).
+\end{itemize}
+
+\subsection{Описание таблиц}
+\textbf{Таблица clubs:}
+\begin{itemize}
+  \item id~--- первичный ключ;
+  \item name~--- название клуба;
+  \item city~--- город (опционально);
+  \item latitude, longitude~--- координаты (опционально);
+  \item logo~--- путь к логотипу (опционально);
+  \item description~--- описание (опционально);
+  \item is\_student~--- признак студенческого клуба (0/1).
+\end{itemize}
+
+\textbf{Таблица members:}
+\begin{itemize}
+  \item id~--- первичный ключ;
+  \item full\_name~--- ФИО;
+  \item avatar~--- путь к аватару (опционально);
+  \item role~--- роль внутри клуба (participant/leader);
+  \item hikes~--- описание походов (опционально);
+  \item achievements~--- достижения (опционально);
+  \item official\_hikes~--- официальные походы (опционально);
+  \item unofficial\_hikes~--- неофициальные походы (опционально);
+  \item about~--- информация о себе (опционально);
+  \item user\_id~--- внешний ключ на users.id (опционально);
+  \item club\_id~--- внешний ключ на clubs.id.
+\end{itemize}
+
+\textbf{Таблица news:}
+\begin{itemize}
+  \item id~--- первичный ключ;
+  \item title~--- заголовок;
+  \item text~--- текст;
+  \item image~--- путь к изображению (опционально);
+  \item date~--- дата публикации (строка в ISO-формате);
+  \item created\_at~--- время создания записи;
+  \item published\_at~--- время публикации (опционально);
+  \item club\_id~--- внешний ключ на clubs.id.
+\end{itemize}
+
+\textbf{Таблица users:}
+\begin{itemize}
+  \item id~--- первичный ключ;
+  \item email~--- логин пользователя;
+  \item hashed\_password~--- хэш пароля;
+  \item full\_name~--- ФИО (опционально);
+  \item avatar~--- путь к аватару (опционально);
+  \item role~--- роль в системе (member/club\_leader/admin/no\_club);
+  \item rank~--- спортивный разряд (опционально, по умолчанию \textquotedblleft без разряда\textquotedblright).
+\end{itemize}
+
+\section{Разработка API и серверной части}
+\subsection{Структура backend-проекта}
+Backend размещён в каталоге \texttt{backend/}. Ключевые файлы:
+\begin{itemize}
+  \item \texttt{main.py}~--- точка входа FastAPI-приложения и описание маршрутов.
+  \item \texttt{app/database.py}~--- подключение к базе данных и создание сессий.
+  \item \texttt{app/models.py}~--- ORM-модели.
+  \item \texttt{app/schemas.py}~--- схемы Pydantic для сериализации.
+  \item \texttt{app/crud.py}~--- функции чтения данных.
+  \item \texttt{init\_db.py}~--- создание таблиц и наполнение тестовыми данными.
+\end{itemize}
+
+\subsection{Описание REST API}
+API предоставляет следующие основные эндпоинты:
+\begin{enumerate}
+  \item \texttt{GET /}~--- проверка доступности сервиса.
+  \item \texttt{POST /auth/register}~--- регистрация пользователя.
+  \item \texttt{POST /auth/token}~--- вход (получение JWT-токена).
+  \item \texttt{GET /users/me}~--- получить текущего пользователя.
+  \item \texttt{PATCH /users/me}~--- обновить ФИО текущего пользователя.
+  \item \texttt{POST /users/me/avatar}~--- загрузить аватар текущего пользователя.
+  \item \texttt{POST /upload/image}~--- загрузить изображение (например, для новостей/логотипов).
+  \item \texttt{GET /clubs}~--- получить список клубов.
+  \item \texttt{GET /clubs/\{club\_id\}}~--- получить один клуб по идентификатору.
+  \item \texttt{POST /clubs}~--- создать клуб (только администратор).
+  \item \texttt{PATCH /clubs/\{club\_id\}}~--- обновить поля клуба (руководитель клуба или администратор).
+  \item \texttt{DELETE /clubs/\{club\_id\}}~--- удалить клуб (только администратор).
+  \item \texttt{POST /clubs/\{club\_id\}/news}~--- добавить новость (руководитель/администратор).
+  \item \texttt{DELETE /news/\{news\_id\}}~--- удалить новость (руководитель/администратор).
+  \item \texttt{POST /clubs/\{club\_id\}/members}~--- добавить участника в клуб (руководитель/администратор).
+  \item \texttt{PATCH /members/\{member\_id\}}~--- обновить данные участника (с проверкой прав).
+  \item \texttt{DELETE /members/\{member\_id\}}~--- удалить участника (руководитель/администратор).
+  \item \texttt{GET /members/me}~--- получить профиль участника текущего пользователя.
+  \item \texttt{PATCH /members/me}~--- обновить профиль участника текущего пользователя.
+  \item \texttt{GET /members/\{member\_id\}}~--- получить участника.
+  \item \texttt{POST /clubs/\{club\_id\}/join}~--- присоединиться к клубу (создание профиля участника).
+  \item \texttt{GET /users}~--- получить список пользователей (только администратор).
+  \item \texttt{GET /users/\{user\_id\}}~--- получить пользователя (только администратор).
+  \item \texttt{PATCH /users/\{user\_id\}}~--- обновить пользователя (только администратор).
+  \item \texttt{DELETE /users/\{user\_id\}}~--- удалить пользователя (только администратор).
+  \item \texttt{POST /users/\{user\_id\}/reset\_password}~--- сбросить пароль (только администратор).
+  \item \texttt{POST /users/\{user\_id\}/assign\_club}~--- назначить пользователя в клуб (только администратор).
+\end{enumerate}
+
+Данные передаются в формате JSON. Для обеспечения возможности обращения frontend к backend в режиме разработки включён CORS.
+
+Доступ к защищённым эндпоинтам осуществляется с помощью заголовка \texttt{Authorization: Bearer <token>}. Права доступа определяются ролями пользователя и ролью участника внутри клуба.
+
+\section{Разработка клиентской части}
+\subsection{Структура frontend-проекта}
+Frontend размещён в каталоге \texttt{frontend/}. Ключевые файлы:
+\begin{itemize}
+  \item \texttt{src/App.jsx}~--- роутинг страниц приложения.
+  \item \texttt{src/services/api.js}~--- слой доступа к API.
+  \item \texttt{src/pages/ClubsPage.jsx}~--- страница списка клубов.
+  \item \texttt{src/pages/ClubPage.jsx}~--- страница клуба с табами.
+  \item \texttt{src/pages/NewsPage.jsx}~--- общая лента новостей.
+  \item \texttt{src/pages/MemberPage.jsx}~--- страница участника.
+  \item \texttt{src/pages/ProfilePage.jsx}~--- профиль пользователя.
+  \item \texttt{src/pages/LoginPage.jsx}, \texttt{src/pages/RegisterPage.jsx}~--- формы входа/регистрации.
+  \item \texttt{src/pages/AdminUsersPage.jsx}, \texttt{src/pages/AdminUserDetailPage.jsx}~--- управление пользователями (администратор).
+  \item \texttt{src/pages/AdminClubsPage.jsx}, \texttt{src/pages/AdminClubDetailPage.jsx}~--- управление клубами (администратор).
+\end{itemize}
+
+\subsection{Маршрутизация}
+Маршрутизация выполнена с использованием \texttt{react-router-dom}. Основные маршруты:
+\begin{itemize}
+  \item \texttt{/}~--- главная страница;
+  \item \texttt{/clubs}~--- список клубов;
+  \item \texttt{/clubs/:id}~--- страница выбранного клуба;
+  \item \texttt{/news}~--- лента новостей;
+  \item \texttt{/members}~--- поиск/список участников;
+  \item \texttt{/members/:id}~--- страница участника;
+  \item \texttt{/login}~--- вход;
+  \item \texttt{/register}~--- регистрация;
+  \item \texttt{/profile}~--- профиль пользователя;
+  \item \texttt{/admin/users}~--- управление пользователями (администратор);
+  \item \texttt{/admin/users/:id}~--- карточка пользователя (администратор);
+  \item \texttt{/admin/clubs}~--- управление клубами (администратор);
+  \item \texttt{/admin/clubs/:id}~--- карточка клуба (администратор).
+\end{itemize}
+
+\subsection{Интеграция с API}
+Взаимодействие с backend осуществляется через модуль \texttt{src/services/api.js} на основе библиотеки axios. В модуле настроен \texttt{baseURL} и реализованы функции для аутентификации (\texttt{login}, \texttt{register}), получения текущего пользователя (\texttt{getMe}), работы с клубами (\texttt{getClubs}, \texttt{getClub}, \texttt{updateClub}), участниками (\texttt{getMember}, \texttt{getMyMember}, \texttt{updateMyMember}), новостями (\texttt{createNews}, \texttt{deleteNews}), а также административные операции (например \texttt{createClubAdmin}, \texttt{deleteClubAdmin}, \texttt{deleteUserAdmin}).
+
+Для защищённых запросов настроен интерцептор, автоматически добавляющий JWT-токен в заголовок \texttt{Authorization}. Для оптимизации применяется простое in-memory кэширование списка клубов на короткий промежуток времени.
+
+\section{Тестирование и экспериментальная апробация}
+\subsection{Методика проверки}
+Проверка работоспособности выполнялась методом \textit{серого ящика}: тестировались как отдельные API-эндпоинты, так и пользовательские сценарии во frontend.
+
+\subsection{Тест-кейсы}
+\begin{enumerate}
+  \item \textbf{Тест 1. Запуск backend и проверка доступности.}
+  \begin{itemize}
+    \item Шаги: запуск \texttt{uvicorn main:app --reload}; переход на \texttt{GET /}.
+    \item Ожидаемый результат: ответ JSON с приветственным сообщением.
+  \end{itemize}
+
+  \item \textbf{Тест 2. Получение списка клубов.}
+  \begin{itemize}
+    \item Шаги: запрос \texttt{GET /clubs} через frontend или инструмент (curl/Postman).
+    \item Ожидаемый результат: массив клубов с заполненными полями и вложенными списками \texttt{members}, \texttt{news}.
+  \end{itemize}
+
+  \item \textbf{Тест 3. Переход на страницу клуба.}
+  \begin{itemize}
+    \item Шаги: открыть страницу \texttt{/clubs}; кликнуть по карточке.
+    \item Ожидаемый результат: отображение информации о клубе, корректное количество участников и новостей.
+  \end{itemize}
+
+  \item \textbf{Тест 4. Добавление новости.}
+  \begin{itemize}
+    \item Шаги: выполнить вход пользователем с правами управления клубом; на странице клуба открыть вкладку \textquotedblleft Новости\textquotedblright , нажать \textquotedblleft Добавить новость\textquotedblright , заполнить форму, при необходимости загрузить изображение.
+    \item Ожидаемый результат: новость появляется в списке без перезагрузки страницы, backend возвращает созданный объект.
+  \end{itemize}
+
+  \item \textbf{Тест 5. Редактирование описания клуба.}
+  \begin{itemize}
+    \item Шаги: выполнить вход пользователем с правами управления клубом; вкладка \textquotedblleft О клубе\textquotedblright  \textrightarrow\ кнопка редактирования \textrightarrow\ изменить описание/координаты \textrightarrow\ сохранить.
+    \item Ожидаемый результат: backend сохраняет изменения, UI показывает обновлённые данные; карта корректно отображает клубы с валидными координатами.
+  \end{itemize}
+
+  \item \textbf{Тест 6. Регистрация и авторизация.}
+  \begin{itemize}
+    \item Шаги: перейти на \texttt{/register}, создать пользователя; затем перейти на \texttt{/login} и выполнить вход.
+    \item Ожидаемый результат: пользователь получает токен, открывается доступ к странице \texttt{/profile} и защищённым операциям согласно роли.
+  \end{itemize}
+
+  \item \textbf{Тест 7. Работа с профилем пользователя.}
+  \begin{itemize}
+    \item Шаги: на странице \texttt{/profile} обновить ФИО и загрузить аватар.
+    \item Ожидаемый результат: данные сохраняются на backend, аватар становится доступным по адресу в \texttt{/static/...}.
+  \end{itemize}
+
+  \item \textbf{Тест 8. Административное управление.}
+  \begin{itemize}
+    \item Шаги: войти администратором; открыть \texttt{/admin/users} и изменить роль/разряд пользователя; открыть \texttt{/admin/clubs} и создать/изменить/удалить клуб.
+    \item Ожидаемый результат: операции выполняются только с ролью администратора; изменения отображаются во frontend.
+  \end{itemize}
+\end{enumerate}
+
+\section{Заключение}
+В ходе выполнения курсового проекта разработано веб-приложение \textquotedblleft Турпортал\textquotedblright\ с клиент--серверной архитектурой. Реализованы основные сущности предметной области (клубы, участники, новости), создано REST API на FastAPI и реализован пользовательский интерфейс на React.
+
+Достигнуты основные цели работы: создана база данных, реализованы эндпоинты для получения и изменения данных, реализованы страницы приложения и обеспечено взаимодействие frontend и backend.
+
+\section{Список литературы}
+\begin{itemize}
+  \item[1.] FastAPI Documentation [Электронный ресурс]. --- Режим доступа: \url{https://fastapi.tiangolo.com/} .
+  \item[2.] SQLAlchemy Documentation [Электронный ресурс]. --- Режим доступа: \url{https://docs.sqlalchemy.org/} .
+  \item[3.] React Documentation [Электронный ресурс]. --- Режим доступа: \url{https://react.dev/} .
+  \item[4.] React Router Documentation [Электронный ресурс]. --- Режим доступа: \url{https://reactrouter.com/} .
+  \item[5.] Axios Documentation [Электронный ресурс]. --- Режим доступа: \url{https://axios-http.com/} .
+  \item[6.] Leaflet Documentation [Электронный ресурс]. --- Режим доступа: \url{https://leafletjs.com/} .
+\end{itemize}
+
+\newpage
+\begin{center}
+\textbf{Приложение А}
+
+\text{(обязательное)}
+
+\text{Экранные формы веб-приложения}
+\end{center}
+\addcontentsline{toc}{section}{Приложение А}
+
+% -----------------------------------------------------------------
+% ВАЖНО: сюда в конце нужно вставить скриншоты (экранные формы).
+% Я оставил места и подписи; изображения добавь в папку img/ (или другую, как удобно)
+% и подставь правильные имена файлов.
+% Рекомендуемый набор экранных форм:
+% 1) Главная страница
+% 2) Список клубов
+% 3) Страница клуба: вкладка "О клубе"
+% 4) Страница клуба: вкладка "Новости" + модальное окно добавления новости
+% 5) Страница клуба: вкладка "Участники"
+% 6) Страница "Новости клубов" (общая лента)
+% 7) Страница участника
+% -----------------------------------------------------------------
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.9\textwidth]{о1.jpg}
+  \caption{Главная страница}
+  \label{fig:screen-home}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.9\textwidth]{o2.jpg}
+  \caption{Страница списка клубов }
+  \label{fig:screen-clubs}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.9\textwidth]{o3.jpg}
+  \caption{Страница клуба: вкладка \textquotedblleft О клубе\textquotedblright\ }
+  \label{fig:screen-club-about}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.9\textwidth]{o4.jpg}
+  \caption{Страница клуба: вкладка \textquotedblleft Новости\textquotedblright\ }
+  \label{fig:screen-club-news}
+\end{figure}
+\clearpage
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.9\textwidth]{o5.jpg}
+  \caption{Модальное окно добавления новости }
+  \label{fig:screen-add-news}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.9\textwidth]{o6.jpg}
+  \caption{Страница клуба: вкладка \textquotedblleft Участники\textquotedblright\ }
+  \label{fig:screen-club-members}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.9\textwidth]{o7.jpg}
+  \caption{Страница \textquotedblleft Новости клубов\textquotedblright\ }
+  \label{fig:screen-news}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.9\textwidth]{o8.jpg}
+  \caption{Страница участника }
+  \label{fig:screen-member}
+\end{figure}
+
+\clearpage
+\begin{center}
+\textbf{Приложение Б}
+
+\text{(справочное)}
+
+\text{Листинги исходного кода}
+\end{center}
+\addcontentsline{toc}{section}{Приложение Б}
+
+\subsection*{Backend}
+
+\subsubsection*{Точка входа и ключевые маршруты (фрагменты) (\texttt{backend/main.py})}
+\textbf{Фрагмент 1. Инициализация приложения, миграции SQLite и создание администратора.}
+\lstinputlisting[language=Python,firstline=1,lastline=110]{backend/main.py}
+
+\textbf{Фрагмент 2. Авторизация и выдача JWT-токена.}
+\lstinputlisting[language=Python,firstline=296,lastline=334]{backend/main.py}
+
+\textbf{Фрагмент 3. Проверка прав руководителя клуба и обновление данных клуба.}
+\lstinputlisting[language=Python,firstline=342,lastline=430]{backend/main.py}
+
+\textbf{Фрагмент 4. Самообслуживание профиля участника (upsert) и правила доступа.}
+\lstinputlisting[language=Python,firstline=468,lastline=546]{backend/main.py}
+
+\subsubsection*{ORM-модели (\texttt{backend/app/models.py})}
+\lstinputlisting[language=Python,firstline=1,lastline=76]{backend/app/models.py}
+
+\subsubsection*{Схемы сериализации (\texttt{backend/app/schemas.py})}
+\textbf{Фрагмент 1. Основные поля участника.}
+\lstinputlisting[language=Python,firstline=1,lastline=33]{backend/app/schemas.py}
+
+\textbf{Фрагмент 2. Схема клуба (включает участников и новости).}
+\lstinputlisting[language=Python,firstline=70,lastline=92]{backend/app/schemas.py}
+
+\textbf{Фрагмент 3. Схемы пользователя и токена.}
+\lstinputlisting[language=Python,firstline=104,lastline=166]{backend/app/schemas.py}
+
+\newpage
+\subsection*{Frontend}
+
+\subsubsection*{Маршруты приложения (\texttt{frontend/src/App.jsx})}
+\lstinputlisting[language=JavaScript]{frontend/src/App.jsx}
+
+\subsubsection*{HTTP-клиент (\texttt{frontend/src/services/api.js})}
+\lstinputlisting[language=JavaScript,firstline=1,lastline=74]{frontend/src/services/api.js}
+
+\subsubsection*{Страница клуба (\texttt{frontend/src/pages/ClubPage.jsx})}
+\lstinputlisting[language=JavaScript,firstline=48,lastline=170]{frontend/src/pages/ClubPage.jsx}
+
+\end{document}
